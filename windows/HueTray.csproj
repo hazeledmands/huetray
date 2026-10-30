@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builds HueTray.exe, the tray app. build.ps1 builds this project a second time with
+       Cli=true to make hue-tray.exe, the console program for the terminal commands. (A flag rather
+       than setting OutputType and AssemblyName directly, because those would reach core too.) -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>HueTray</AssemblyName>
+    <RootNamespace>HueTray</RootNamespace>
+    <Product>Hue Tray</Product>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>embedded</DebugType>
+    <!-- Lets the project compile on Linux and macOS too (for CI and WSL); it only runs on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Cli)' == 'true'">
+    <OutputType>Exe</OutputType>
+    <AssemblyName>hue-tray</AssemblyName>
+    <IntermediateOutputPath>obj\cli\</IntermediateOutputPath>
+    <DefineConstants>$(DefineConstants);CLI</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\core\HueTray.Core.csproj" />
+  </ItemGroup>
+
+</Project>

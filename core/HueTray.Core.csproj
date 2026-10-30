@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Everything that isn't platform UI: the Hue bridge client, the live state cache, the command
+       queue, the settings file and the local HTTP API. The tray shells in windows/ (and later macos/)
+       sit on top of this. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>HueTray</RootNamespace>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <InternalsVisibleTo Include="HueTray.Core.Tests" />
+  </ItemGroup>
+
+</Project>
