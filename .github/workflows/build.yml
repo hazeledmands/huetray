@@ -1,5 +1,5 @@
-# Tests the core and builds the Windows app on every push and pull request. The built app is
-# attached to each run. (A macOS job joins this once there's a macOS version.)
+# Tests the core and builds the Windows and macOS apps on every push and pull request. The built
+# apps are attached to each run.
 name: Build
 
 on:
@@ -25,3 +25,22 @@ jobs:
         with:
           name: HueTray-windows
           path: build/windows/*.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test tests/HueTray.Core.Tests
+      - name: Build
+        run: macos/build.sh
+      # Zipped, because the upload would drop the bundle's permissions and signature.
+      - name: Zip
+        run: cd build/macos && ditto -c -k --keepParent "Hue Tray.app" HueTray-macos.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: HueTray-macos
+          path: build/macos/HueTray-macos.zip

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builds hue-tray, the terminal commands for macOS. The menu bar app (HueTray/, in Swift) runs
+       it as `hue-tray run` for the bridge connection and the API, and builds its menu from that API.
+       build.sh copies it into Hue Tray.app/Contents/MacOS. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>hue-tray</AssemblyName>
+    <RootNamespace>HueTray</RootNamespace>
+    <Product>Hue Tray</Product>
+    <!-- Self-contained, so the app doesn't depend on where (or whether) .NET is installed.
+         Compressed, which halves it to about 50 MB. -->
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\HueTray.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -3,7 +3,7 @@
 //
 // Builds as two programs:
 //   HueTray.exe              the tray app (what runs at login)
-//   hue-tray.exe <command>   the terminal commands (see Commands.cs)
+//   hue-tray.exe <command>   the terminal commands (see core/Commands.cs)
 
 namespace HueTray;
 
@@ -14,7 +14,7 @@ static class Program
     {
 #if CLI
         Console.OutputEncoding = System.Text.Encoding.UTF8;
-        return Commands.Run(args).GetAwaiter().GetResult();
+        return Commands.Run(args, "HueTray.exe", on => LoginItem.Enabled = on).GetAwaiter().GetResult();
 #else
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);

@@ -1,6 +1,6 @@
 # Hue Tray
 
-Hue Tray is a small app that controls Philips Hue lights from the Windows notification area. It can recall scenes and switch, dim and tint rooms, zones and single lights. Other programs, such as [jog-scroll](https://github.com/hazeledmands/jog-scroll) with a DJ controller, scripts or a Stream Deck, can drive it through a local HTTP API. A macOS menu bar version is planned. It will share everything except the menu code.
+Hue Tray is a small app that controls Philips Hue lights from the Windows notification area or the macOS menu bar. It can recall scenes and switch, dim and tint rooms, zones and single lights. Other programs, such as [jog-scroll](https://github.com/hazeledmands/jog-scroll) with a DJ controller, scripts or a Stream Deck, can drive it through a local HTTP API. Both versions share everything except the menu code.
 
 How it behaves:
 - On first run it finds your Hue Bridge and asks you to press the bridge's round link button. That pairs it, and it remembers the bridge from then on.
@@ -21,9 +21,23 @@ This builds Hue Tray (into `build\windows`), copies it to `%LOCALAPPDATA%\Progra
 
 The bulb icon is filled while any light is on, and faded while the bridge can't be reached. Left or right click opens the menu. You may need to drag the icon out of the hidden-icons area (^) so it stays visible.
 
+## Install (macOS)
+
+You'll need macOS 13 or later, the .NET 10 SDK (`brew install --cask dotnet-sdk`) and Xcode or its Command Line Tools (`xcode-select --install`). From the repo root, run:
+
+```
+macos/install.sh
+```
+
+This builds Hue Tray (into `build/macos`), copies it to `~/Applications/Hue Tray.app`, sets it to start at login and launches it. To build without installing, run `macos/build.sh`. It builds for your Mac's processor. The app is signed for your Mac only. A copy downloaded from a CI run is blocked by Gatekeeper until you run `xattr -dr com.apple.quarantine "Hue Tray.app"`.
+
+The bulb is in the menu bar. It's filled while any light is on, and faded while the bridge can't be reached. The first time it looks for the bridge, macOS asks whether Hue Tray may find devices on your local network. Say yes, or it can't reach the bridge. (To change your answer later, go to System Settings > Privacy & Security > Local Network.) Notifications, such as "Press the link button", need permission too.
+
+The menu is Swift (`macos/HueTray`). The bridge connection and the API are the same C# code as on Windows. It runs as a helper, `hue-tray run`, which the app starts and stops with itself. The menu reads and changes the lights through the API like any other client. The helper's log is in `~/Library/Logs/Hue Tray.log`.
+
 ## Settings
 
-Settings are in `%APPDATA%\hue-tray\config.json`, and changes take effect within a couple of seconds. **Open Settings File** in the menu opens it.
+Settings are in `%APPDATA%\hue-tray\config.json` on Windows and `~/Library/Application Support/hue-tray/config.json` on macOS. Changes take effect within a couple of seconds. **Open Settings File** in the menu opens it.
 
 | key | default | meaning |
 |---|---|---|
@@ -67,26 +81,27 @@ curl -H "Authorization: Bearer $TOKEN" -X PATCH localhost:8765/api/v1/rooms/Livi
 
 ## Terminal commands
 
-The terminal commands are a separate console program, `hue-tray.exe`, next to `HueTray.exe` in `%LOCALAPPDATA%\Programs\HueTray`:
+The terminal commands are a separate console program. On Windows it's `hue-tray.exe`, next to `HueTray.exe` in `%LOCALAPPDATA%\Programs\HueTray`. On macOS it's `~/Applications/Hue Tray.app/Contents/MacOS/hue-tray`. To put it on your path, link it from a folder on your path, for example `ln -s ~/Applications/"Hue Tray.app"/Contents/MacOS/hue-tray /opt/homebrew/bin/`.
 
 - `hue-tray pair [ip]`: find the bridge (or use the address you give) and pair with it
+- `hue-tray discover`: list the bridges on the network
 - `hue-tray list`: rooms and zones with their lights and scenes
 - `hue-tray scene <name> [room]`: activate a scene
 - `hue-tray light|room|zone <name> <value>...`: change it. Values are `on`, `off`, a brightness (`50`, `+10`, `-10`), a colour temperature (`2700K`) or a colour (`#ff8800`)
 - `hue-tray off`: All Off
 - `hue-tray status`, `hue-tray token`
 - `hue-tray run`: connect to the bridge and run the API without the tray icon, logging to the terminal
-- `hue-tray login on` / `login off`: start, or stop starting, at login (a "Hue Tray" entry under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`)
+- `hue-tray login on` / `login off`: start, or stop starting, at login. On Windows this is a "Hue Tray" entry under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. On macOS it's `~/Library/LaunchAgents/io.github.hazeledmands.huetray.plist`
 
 The commands that change lights go through the tray app's API when it's running, and straight to the bridge when it isn't.
 
 ## Repository layout
 
-- `core/`: everything that isn't platform UI, as a .NET library. It has the bridge connection (`Hue/`), the live state (`State.cs`), the rate-limited command queue, the settings file and the HTTP API (`Api/`). A macOS version would use this unchanged.
-- `windows/`: the WinForms tray app and terminal commands, with build and install scripts
+- `core/`: everything that isn't platform UI, as a .NET library. It has the bridge connection (`Hue/`), the live state (`State.cs`), the rate-limited command queue, the settings file, the HTTP API (`Api/`) and the terminal commands (`Commands.cs`).
+- `windows/`: the WinForms tray app, and the Windows build of the terminal commands, with build and install scripts
+- `macos/`: the Swift menu bar app (`HueTray/`), the macOS build of the terminal commands, which is also the app's helper (`helper/`), and build and install scripts
 - `tests/`: tests for `core`, using a fake bridge. Run them with `dotnet test tests/HueTray.Core.Tests`.
 
 ## Plans
 
 - **jog-scroll integration:** add optional mappings to jog-scroll's config, so that chosen MIDI controls call this API. For example, a knob could step a room's brightness and pads could recall scenes. jog-scroll keeps sole ownership of the controller, which matters on Windows versions where only one program can open a MIDI device.
-- **macOS:** a menu bar shell on top of `core`.

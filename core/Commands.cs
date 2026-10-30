@@ -1,20 +1,22 @@
-#if CLI
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using HueTray.Api;
 using HueTray.Hue;
 
 namespace HueTray;
 
-/// hue-tray.exe: the terminal commands. Commands that change lights go through the running tray
-/// app's API when it's up (so its menu stays in step), and straight to the bridge when it isn't.
-static class Commands
+/// hue-tray: the terminal commands, shared by the Windows and macOS builds. Commands that change
+/// lights go through the running tray app's API when it's up (so its menu stays in step), and
+/// straight to the bridge when it isn't.
+public static class Commands
 {
     const string Usage = """
         Usage:
           hue-tray pair [ip]                find the bridge and pair with it (press its link button)
+          hue-tray discover                 list the bridges on the network
           hue-tray list                     show rooms, zones, lights and scenes
           hue-tray scene <name> [room]      activate a scene
           hue-tray light <name> <value>...  change a light
@@ -26,16 +28,17 @@ static class Commands
           hue-tray token                    print the API token
           hue-tray login on|off             start (or stop starting) the tray app at login
         A <value> is on, off, a brightness (50, +10, -10), a colour temperature (2700K) or a colour (#ff8800).
-        The tray app is HueTray.exe.
         """;
 
-    public static async Task<int> Run(string[] args)
+    /// `trayApp` names the tray app in the usage text. `setStartAtLogin` is what `login on|off` does.
+    public static async Task<int> Run(string[] args, string trayApp, Action<bool> setStartAtLogin)
     {
         try
         {
             switch (args.FirstOrDefault())
             {
                 case "pair": return await Pair(args.ElementAtOrDefault(1));
+                case "discover": return await Discover();
                 case "list": return await List();
                 case "scene" when args.Length >= 2:
                     return await Change($"scenes/{Uri.EscapeDataString(args[1])}/activate", HttpMethod.Post,
@@ -47,17 +50,18 @@ static class Commands
                         hue => args[0] == "light" ? hue.SetLight(args[1], change) : hue.SetGroup(args[0], args[1], change));
                 case "off": return await Change("off", HttpMethod.Post, null, hue => { hue.AllOff(); return "ok"; });
                 case "status": return await Status();
-                case "run": return await RunHeadless();
+                case "run": return await RunHeadless(exitWithStdin: args.Contains("--exit-with-stdin"));
                 case "token":
                     Console.WriteLine(ConfigFile.Load().ApiToken);
                     return 0;
                 case "login":
                     bool on = args.ElementAtOrDefault(1) != "off";
-                    LoginItem.Enabled = on;
+                    setStartAtLogin(on);
                     Console.WriteLine(on ? "Hue Tray will start at login." : "Hue Tray will no longer start at login.");
                     return 0;
                 default:
                     Console.WriteLine(Usage);
+                    Console.WriteLine($"The tray app is {trayApp}.");
                     Console.WriteLine($"Settings: {ConfigFile.Path}");
                     return 1;
             }
@@ -101,6 +105,17 @@ static class Commands
         return 0;
     }
 
+    /// One bridge per line, as address, name and id separated by tabs. The macOS menu bar app reads this.
+    static async Task<int> Discover()
+    {
+        var found = await Discovery.FindAsync();
+        var known = ConfigFile.Load().BridgeIp;
+        if (found.Count == 0 && known != null && await Discovery.DescribeAsync(known) is { } bridge)
+            found.Add(bridge);
+        foreach (var b in found) Console.WriteLine($"{b.Ip}\t{b.Name}\t{b.Id}");
+        return 0;
+    }
+
     static async Task<int> List()
     {
         await using var hue = new HueService(ConfigFile.Load());
@@ -137,7 +152,9 @@ static class Commands
         return 0;
     }
 
-    static async Task<int> RunHeadless()
+    /// `exitWithStdin` also quits when stdin closes. The macOS app runs this as its helper with a pipe
+    /// for stdin, so the helper can't outlive the app even if the app crashes.
+    static async Task<int> RunHeadless(bool exitWithStdin)
     {
         var cfg = ConfigFile.Load();
         await using var hue = new HueService(cfg);
@@ -145,11 +162,23 @@ static class Commands
         hue.StatusChanged += s => Log.Write($"Bridge: {s}");
         hue.Start();
         await using var api = new ApiServer(hue, cfg.ApiToken);
-        await api.StartAsync(cfg.ApiPort);
+        try { await api.StartAsync(cfg.ApiPort); }
+        catch (IOException)
+        {
+            Console.Error.WriteLine($"Port {cfg.ApiPort} is in use by another program. Change apiPort in the settings file.");
+            return 1;
+        }
         Log.Write($"API on http://127.0.0.1:{api.Port}/api/v1/  (token: hue-tray token)");
         Log.Write("Running. Press Ctrl-C to quit.");
         var quit = new TaskCompletionSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; quit.TrySetResult(); };
+        using var term = PosixSignalRegistration.Create(PosixSignal.SIGTERM, s => { s.Cancel = true; quit.TrySetResult(); });
+        if (exitWithStdin)
+            _ = Task.Run(async () =>
+            {
+                try { await Console.OpenStandardInput().CopyToAsync(Stream.Null); }
+                finally { quit.TrySetResult(); }
+            });
         await quit.Task;
         Console.WriteLine("Bye.");
         return 0;
@@ -227,4 +256,3 @@ static class Commands
         return body;
     }
 }
-#endif
