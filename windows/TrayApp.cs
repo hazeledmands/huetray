@@ -52,7 +52,9 @@ sealed class TrayApp : ApplicationContext
 
     async Task StartServices()
     {
+        string? scope = hue?.Scopes.Current.Name;   // keep the chosen scope when the settings are reloaded
         hue = new HueService(cfg);
+        hue.Scopes.Restore(scope);
         shownStatus = hue.Status;
         hue.State.Changed += _ => QueueRefresh();
         hue.StatusChanged += s => ui.Post(_ => StatusChanged(s), null);
@@ -159,6 +161,7 @@ sealed class TrayApp : ApplicationContext
         {
             var state = hue.State;
             menu.Items.Add(ScenesMenu(state));
+            if (ScopeMenu() is { } scopes) menu.Items.Add(scopes);
             var lights = state.Lights().ToDictionary(l => l.Id);
             foreach (var group in Shown(state.Rooms().Concat(state.Zones()), cfg.Menu.Rooms, g => g.Id, g => g.Name, showAllIfEmpty: true))
                 menu.Items.Add(GroupMenu(group, lights));
@@ -206,6 +209,21 @@ sealed class TrayApp : ApplicationContext
                 parent.DropDownItems.Add(Item("    " + scene.Name, scene.Active, () => Do(() => hue.ActivateScene(scene.Id))));
         }
         if (parent.DropDownItems.Count == 0) parent.DropDownItems.Add(new ToolStripMenuItem("No scenes") { Enabled = false });
+        return parent;
+    }
+
+    /// The scopes from the settings, with the chosen one checked. None if there aren't any.
+    ToolStripMenuItem? ScopeMenu()
+    {
+        var scope = hue.Scopes.Current;
+        if (scope.Count == 0) return null;
+        var parent = new ToolStripMenuItem($"Scope: {scope.Name}");
+        for (int i = 0; i < scope.Names.Count; i++)
+        {
+            int index = i + 1;
+            parent.DropDownItems.Add(Item($"{index}. {scope.Names[i]}", index == scope.Index,
+                                          () => Do(() => hue.Scopes.Select(new ScopeChoice { Index = index }))));
+        }
         return parent;
     }
 

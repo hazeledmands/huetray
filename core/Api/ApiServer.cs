@@ -102,6 +102,10 @@ public sealed class ApiServer(HueService hue, string token) : IAsyncDisposable
         api.MapPatch("/home", async (HttpRequest request) =>
             hue.SetGroup("home", "", LightChange.Parse(await RequiredBody(request))));
 
+        api.MapGet("/scope", () => hue.Scopes.Current);
+        api.MapPut("/scope", async (HttpRequest request) => hue.Scopes.Select(ScopeChoice.Parse(await RequiredBody(request))));
+        api.MapPatch("/scope/lights", async (HttpRequest request) => hue.SetScope(LightChange.Parse(await RequiredBody(request))));
+
         api.MapPost("/off", () =>
         {
             hue.AllOff();
@@ -126,7 +130,7 @@ public sealed class ApiServer(HueService hue, string token) : IAsyncDisposable
         return doc.RootElement.Clone();
     }
 
-    /// A WebSocket that sends a JSON message for every change: {"type": "light"|"room"|"zone"|"home"|"scene"|"status"|"reload", ...}.
+    /// A WebSocket that sends a JSON message for every change: {"type": "light"|"room"|"zone"|"home"|"scene"|"scope"|"status"|"reload", ...}.
     async Task Events(HttpContext context)
     {
         if (!context.WebSockets.IsWebSocketRequest)
@@ -143,9 +147,11 @@ public sealed class ApiServer(HueService hue, string token) : IAsyncDisposable
                 outbox.Writer.TryWrite(c.Item == null ? new { type = c.Type, id = c.Id } : new { type = c.Type, id = c.Id, item = c.Item });
         }
         void OnStatus(BridgeStatus s) => outbox.Writer.TryWrite(new { type = "status", status = s.ToString().ToLowerInvariant() });
+        void OnScope(ScopeView scope) => outbox.Writer.TryWrite(new { type = "scope", item = scope });
 
         hue.State.Changed += OnChange;
         hue.StatusChanged += OnStatus;
+        hue.Scopes.Changed += OnScope;
         OnStatus(hue.Status);
         try
         {
@@ -167,6 +173,7 @@ public sealed class ApiServer(HueService hue, string token) : IAsyncDisposable
         {
             hue.State.Changed -= OnChange;
             hue.StatusChanged -= OnStatus;
+            hue.Scopes.Changed -= OnScope;
         }
     }
 

@@ -22,6 +22,7 @@ public static class Commands
           hue-tray light <name> <value>...  change a light
           hue-tray room <name> <value>...   change a room
           hue-tray zone <name> <value>...   change a zone
+          hue-tray scope [choice]           show the scopes, or choose one by number, name, or +1 / -1
           hue-tray off                      turn off everything the menu shows
           hue-tray status                   is the bridge reachable?
           hue-tray run                      run the bridge connection and API without the tray icon
@@ -48,6 +49,7 @@ public static class Commands
                     var change = ParseValues(args.Skip(2));
                     return await Change($"{args[0]}s/{Uri.EscapeDataString(args[1])}", HttpMethod.Patch, ApiBody(change),
                         hue => args[0] == "light" ? hue.SetLight(args[1], change) : hue.SetGroup(args[0], args[1], change));
+                case "scope": return await Scope(string.Join(' ', args.Skip(1)));
                 case "off": return await Change("off", HttpMethod.Post, null, hue => { hue.AllOff(); return "ok"; });
                 case "status": return await Status();
                 case "run": return await RunHeadless(exitWithStdin: args.Contains("--exit-with-stdin"));
@@ -134,6 +136,46 @@ public static class Commands
             if (scenes.Count > 0) Console.WriteLine($"    scenes: {string.Join(", ", scenes)}");
         }
         return 0;
+    }
+
+    /// The chosen scope only lives in the running app, so this always goes through its API.
+    static async Task<int> Scope(string choice)
+    {
+        var cfg = ConfigFile.Load();
+        if (!await ApiRunning(cfg)) throw new HueException("The tray app isn't running, and the chosen scope lives there");
+        using var http = ApiClient(cfg);
+        HttpResponseMessage response;
+        if (choice.Length == 0) response = await http.GetAsync("scope");
+        else
+        {
+            JsonObject body;
+            try
+            {
+                var parsed = ScopeChoice.ParseIndex(choice);
+                body = new JsonObject { ["index"] = parsed.Step is { } step ? (step >= 0 ? "+" : "") + step.ToString(CultureInfo.InvariantCulture) : parsed.Index };
+            }
+            catch (FormatException) { body = new JsonObject { ["name"] = choice }; }
+            response = await http.PutAsync("scope", JsonContent.Create(body));
+        }
+        using (response)
+        {
+            var json = await response.Content.ReadFromJsonAsync<JsonObject>();
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.Error.WriteLine(json?["error"]?.GetValue<string>() ?? $"HTTP {(int)response.StatusCode}");
+                return 1;
+            }
+            var names = json!["names"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+            if (names.Count == 0)
+            {
+                Console.WriteLine($"There are no scopes yet. Add them to \"scopes\" in {ConfigFile.Path}");
+                return 0;
+            }
+            int index = json["index"]!.GetValue<int>();
+            for (int i = 0; i < names.Count; i++)
+                Console.WriteLine($"{(i + 1 == index ? "*" : " ")} {i + 1}. {names[i]}");
+            return 0;
+        }
     }
 
     static async Task<int> Status()

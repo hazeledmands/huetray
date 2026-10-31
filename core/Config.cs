@@ -14,6 +14,7 @@ public sealed class Config
     public int ApiPort { get; set; } = 8765;                  // the local HTTP API, on 127.0.0.1 only
     public string ApiToken { get; set; } = "";                // generated on first run
     public MenuConfig Menu { get; set; } = new();
+    public List<ScopeConfig> Scopes { get; set; } = new();   // sets of lights that change together; see Scopes.cs
     public double BrightnessStep { get; set; } = 5;           // percent, for relative changes without a number
     public double LightCommandsPerSecond { get; set; } = 10;  // the bridge's documented limits
     public double GroupCommandsPerSecond { get; set; } = 1;

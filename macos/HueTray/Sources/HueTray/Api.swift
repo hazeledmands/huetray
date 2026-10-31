@@ -31,6 +31,14 @@ struct Scene: Decodable {
     let active: Bool
 }
 
+/// The chosen scope (index counts from 1, and is 0 when there are none), and every scope's name.
+struct ScopeInfo: Decodable {
+    let index: Int
+    let count: Int
+    let name: String?
+    let names: [String]
+}
+
 struct ApiStatus: Decodable {
     let status: String   // unpaired, connecting, connected or unreachable
     let bridge: String

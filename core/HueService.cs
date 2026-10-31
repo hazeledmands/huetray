@@ -19,6 +19,7 @@ public sealed class HueService : IAsyncDisposable
     Task? events;
 
     public HueState State { get; } = new();
+    public Scopes Scopes { get; }
     public BridgeStatus Status { get; private set; }
     public string? LastError { get; private set; }
 
@@ -29,6 +30,7 @@ public sealed class HueService : IAsyncDisposable
     public HueService(Config cfg, HttpClient? http = null)
     {
         this.cfg = cfg;
+        Scopes = new Scopes(cfg.Scopes);
         if (!cfg.IsPaired && http == null)
         {
             Status = BridgeStatus.Unpaired;
@@ -146,6 +148,43 @@ public sealed class HueService : IAsyncDisposable
         if (transitionMs is { } ms) recall["duration"] = Math.Max(0, ms);
         Queue().Enqueue("scene", scene.Id, new JsonObject { ["recall"] = recall });
         return scene;
+    }
+
+    /// Changes every light, room and zone in the chosen scope. Returns their new states.
+    public IReadOnlyList<object> SetScope(LightChange change)
+    {
+        var scope = Scopes.Current;
+        if (scope.Count == 0) throw new NotFoundException("There are no scopes yet. Add them to \"scopes\" in Hue Tray's settings file");
+        // Find them all first, so a misspelt target changes nothing rather than half the scope.
+        List<Func<object>> changes;
+        try { changes = scope.Targets.Select(target => Target(target, change)).ToList(); }
+        catch (HueException e) when (e is NotFoundException or AmbiguousException)
+        {
+            throw new NotFoundException($"In the scope \"{scope.Name}\": {e.Message}");
+        }
+        return changes.Select(apply => apply()).ToList();
+    }
+
+    /// "lights/NAME", "rooms/NAME", "zones/NAME" or "home", like the API's paths. Returns what changes it.
+    Func<object> Target(string target, LightChange change)
+    {
+        int slash = target.IndexOf('/');
+        string kind = (slash < 0 ? target : target[..slash]).Trim().ToLowerInvariant().TrimEnd('s');
+        string name = slash < 0 ? "" : target[(slash + 1)..];
+        switch (kind)
+        {
+            case "light":
+                var light = State.FindLight(name);
+                return () => SetLight(light.Id, change);
+            case "room" or "zone":
+                var group = State.FindGroup(kind, name);
+                return () => SetGroup(kind, group.Id, change);
+            case "home" when slash < 0:
+                State.FindGroup("home", "");
+                return () => SetGroup("home", "", change);
+            default:
+                throw new FormatException($"\"{target}\" isn't something a scope can change: use lights/NAME, rooms/NAME, zones/NAME or home");
+        }
     }
 
     /// Turns off what the menu shows: the configured rooms and lights, or every light if none are configured.

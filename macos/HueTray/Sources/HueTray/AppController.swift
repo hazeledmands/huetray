@@ -29,6 +29,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var rooms: [LightGroup] = []
     private var zones: [LightGroup] = []
     private var scenes: [Scene] = []
+    private var scope: ScopeInfo?
 
     private var pairing = false
     private var foundBridges: [(ip: String, name: String)] = []
@@ -155,6 +156,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if status.status == "connected" { loaded = true }
             statusChanged(status.status)
         } catch {}
+        scope = try? await api.get("scope")
         refreshIcon()
     }
 
@@ -223,6 +225,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if loaded {
             menu.addItem(scenesMenu())
+            if let scopes = scopeMenu() { menu.addItem(scopes) }
             let byId = Dictionary(lights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             for group in shown(rooms + zones, cfg.menu.rooms, showAllIfEmpty: true, id: \.id, name: \.name) {
                 menu.addItem(groupMenu(group, byId))
@@ -284,6 +287,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         if submenu.numberOfItems == 0 { submenu.addItem(disabled("No scenes")) }
+        parent.submenu = submenu
+        return parent
+    }
+
+    /// The scopes from the settings, with the chosen one checked. None if there aren't any.
+    private func scopeMenu() -> NSMenuItem? {
+        guard let scope, scope.count > 0 else { return nil }
+        let parent = NSMenuItem(title: "Scope: \(scope.name ?? "")", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+        for (i, name) in scope.names.enumerated() {
+            let index = i + 1
+            submenu.addItem(item("\(index). \(name)", checked: index == scope.index) {
+                self.send("PUT", "scope", ["index": index])
+            })
+        }
         parent.submenu = submenu
         return parent
     }
