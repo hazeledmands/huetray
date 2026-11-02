@@ -28,7 +28,14 @@ public sealed class ApiServer(HueService hue, string token) : IAsyncDisposable
 
     public async Task StartAsync(int port)
     {
-        var builder = WebApplication.CreateSlimBuilder();
+        // By default ASP.NET watches the working directory and everything under it for changes to
+        // appsettings.json, which we don't use. Launched from Finder or at login that's all of /, and
+        // macOS then asks for access to other apps' data whenever they write files.
+        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
+        {
+            ContentRootPath = AppContext.BaseDirectory,
+            Args = ["--hostBuilder:reloadConfigOnChange=false"],
+        });
         builder.Logging.ClearProviders();
         builder.WebHost.UseKestrel(o => o.Listen(IPAddress.Loopback, port));
         builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
