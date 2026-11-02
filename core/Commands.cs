@@ -52,7 +52,9 @@ public static class Commands
                 case "scope": return await Scope(string.Join(' ', args.Skip(1)));
                 case "off": return await Change("off", HttpMethod.Post, null, hue => { hue.AllOff(); return "ok"; });
                 case "status": return await Status();
-                case "run": return await RunHeadless(exitWithStdin: args.Contains("--exit-with-stdin"));
+                case "run":
+                    int scopeAt = Array.IndexOf(args, "--scope");
+                    return await RunHeadless(args.Contains("--exit-with-stdin"), scopeAt > 0 ? args.ElementAtOrDefault(scopeAt + 1) : null);
                 case "token":
                     Console.WriteLine(ConfigFile.Load().ApiToken);
                     return 0;
@@ -196,10 +198,13 @@ public static class Commands
 
     /// `exitWithStdin` also quits when stdin closes. The macOS app runs this as its helper with a pipe
     /// for stdin, so the helper can't outlive the app even if the app crashes.
-    static async Task<int> RunHeadless(bool exitWithStdin)
+    /// `scope` chooses that scope at the start, if there is one by that name. The macOS app passes the
+    /// chosen one when it restarts this, so editing the settings doesn't lose the choice.
+    static async Task<int> RunHeadless(bool exitWithStdin, string? scope)
     {
         var cfg = ConfigFile.Load();
         await using var hue = new HueService(cfg);
+        hue.Scopes.Restore(scope);
         if (!hue.IsPaired) throw new HueException("Not paired with a bridge yet. Run:  hue-tray pair");
         hue.StatusChanged += s => Log.Write($"Bridge: {s}");
         hue.Start();

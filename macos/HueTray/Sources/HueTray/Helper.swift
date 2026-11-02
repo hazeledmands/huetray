@@ -47,9 +47,10 @@ final class HelperProcess {
     /// Called if it stops by itself, with what it last printed.
     var onExit: ((String?) -> Void)?
 
-    init() throws {
+    /// `scope` is the scope to choose at the start, by name.
+    init(scope: String?) throws {
         process.executableURL = Helper.url
-        process.arguments = ["run", "--exit-with-stdin"]
+        process.arguments = ["run", "--exit-with-stdin"] + (scope.map { ["--scope", $0] } ?? [])
         process.standardInput = stdin
         let output = Pipe()
         process.standardOutput = output

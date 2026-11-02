@@ -84,7 +84,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         status = "connecting"
         do {
-            let helper = try HelperProcess()
+            // Keeps the chosen scope when the helper restarts, as it does after a settings edit.
+            let helper = try HelperProcess(scope: scope?.name)
             helper.onExit = { [weak self] line in self?.helperExited(line) }
             self.helper = helper
             helperError = nil
@@ -156,7 +157,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if status.status == "connected" { loaded = true }
             statusChanged(status.status)
         } catch {}
-        scope = try? await api.get("scope")
+        // Kept when the helper is down, so that it can be passed on when it starts again.
+        if let scope: ScopeInfo = try? await api.get("scope") { self.scope = scope }
         refreshIcon()
     }
 
