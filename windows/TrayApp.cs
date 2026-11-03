@@ -47,7 +47,8 @@ sealed class TrayApp : ApplicationContext
 
         tray.Visible = true;
         _ = StartServices();
-        if (!cfg.IsPaired) PairClicked();
+        ReportLoadError();
+        if (!cfg.IsPaired && ConfigFile.LoadError == null) PairClicked();
     }
 
     async Task StartServices()
@@ -93,10 +94,18 @@ sealed class TrayApp : ApplicationContext
         {
             configDate = date;
             cfg = ConfigFile.Load();
+            ReportLoadError();
             await StopServices();
             await StartServices();
         }
         Refresh();
+    }
+
+    /// Says so if the settings file couldn't be read. Until it's fixed, Hue Tray isn't paired and won't save over it.
+    void ReportLoadError()
+    {
+        if (ConfigFile.LoadError is { } error)
+            Notify("The settings file has an error", $"Hue Tray won't change it until it's fixed. {error}");
     }
 
     void StatusChanged(BridgeStatus status)
@@ -136,6 +145,7 @@ sealed class TrayApp : ApplicationContext
     string StatusText()
     {
         if (pairing) return "Pairing…";
+        if (ConfigFile.LoadError != null) return "The settings file has an error";
         return hue.Status switch
         {
             BridgeStatus.Unpaired => "Not paired with a bridge",

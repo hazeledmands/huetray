@@ -55,7 +55,7 @@ public sealed class ApiServer(HueService hue, string token) : IAsyncDisposable
         // Browsers can't set headers on a WebSocket, so /events also takes ?token=.
         var given = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim()
             : context.Request.Query["token"].ToString();
-        if (!CryptographicEquals(given, token))
+        if (token.Length == 0 || !CryptographicEquals(given, token))   // no token: the settings file couldn't be read
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new { error = "Missing or wrong API token. It's apiToken in Hue Tray's config.json." }, Json);

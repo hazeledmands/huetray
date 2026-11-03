@@ -36,6 +36,20 @@ struct Config: Decodable {
         return (try? JSONDecoder().decode(Config.self, from: data)) ?? Config()
     }
 
+    /// Why the settings file can't be read, or nil if it can (or there isn't one). The helper won't use or
+    /// change a file it can't read, so Hue Tray stays unpaired until it's fixed.
+    static func loadError() -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        do {
+            _ = try JSONDecoder().decode(Config.self, from: data)
+            return nil
+        } catch DecodingError.dataCorrupted(let context) {
+            return context.underlyingError?.localizedDescription ?? context.debugDescription
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     static func modified() -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
     }

@@ -40,6 +40,8 @@ The menu is Swift (`macos/HueTray`). The bridge connection and the API are the s
 
 Settings are in `%APPDATA%\hue-tray\config.json` on Windows and `~/Library/Application Support/hue-tray/config.json` on macOS. Changes take effect within a couple of seconds. **Open Settings File** in the menu opens it.
 
+If the file can't be read, for example after a hand edit with a typo, Hue Tray says so and stays unpaired, with the API turning every request away, until it's fixed. It won't save over it. That also makes it safe to share the file between computers that use the same bridge, with Syncthing for example. On a new computer, let the shared file arrive before Hue Tray first runs, or it creates a token of its own.
+
 | key | default | meaning |
 |---|---|---|
 | `bridgeIp`, `bridgeId`, `bridgeName` | | the paired bridge, filled in by pairing |

@@ -50,23 +50,52 @@ public static class ConfigFile
         return System.IO.Path.Combine(dir, "config.json");
     }
 
-    /// Loads the settings, creating the API token (and saving it) the first time.
-    public static Config Load()
+    /// Why the settings file couldn't be read the last time it was loaded, or null.
+    public static string? LoadError { get; private set; }
+
+    /// Loads the settings, creating the API token (and saving it) the first time. If there's a settings file
+    /// that can't be read, it returns the defaults with no token (so the API turns every request away), sets
+    /// LoadError, and doesn't save: Save won't write over it either.
+    public static Config Load() => Load(Path);
+
+    internal static Config Load(string path)
     {
-        Config cfg;
-        try { cfg = JsonSerializer.Deserialize<Config>(File.ReadAllText(Path), options) ?? new Config(); }
-        catch { cfg = new Config(); }
+        LoadError = null;
+        string? error = null;
+        var cfg = File.Exists(path) ? Read(path, out error) : new Config();
+        if (cfg == null)
+        {
+            LoadError = error;
+            Log.Write($"Can't read {path}: {error}");
+            return new Config();
+        }
         if (string.IsNullOrEmpty(cfg.ApiToken))
         {
             cfg.ApiToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-            Save(cfg);
+            Save(cfg, path);
         }
         return cfg;
     }
 
-    public static void Save(Config cfg)
+    static Config? Read(string path, out string? error)
     {
-        try { File.WriteAllText(Path, JsonSerializer.Serialize(cfg, options)); }
+        error = null;
+        try { return JsonSerializer.Deserialize<Config>(File.ReadAllText(path), options) ?? new Config(); }
+        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException)
+        {
+            error = e.Message;
+            return null;
+        }
+    }
+
+    /// Saves the settings, unless the file there can't be read. That's usually a hand edit with a typo, and
+    /// writing over it would lose the pairing and everything else: everywhere, if the file is synced.
+    public static void Save(Config cfg) => Save(cfg, Path);
+
+    internal static void Save(Config cfg, string path)
+    {
+        if (File.Exists(path) && Read(path, out _) == null) return;
+        try { File.WriteAllText(path, JsonSerializer.Serialize(cfg, options)); }
         catch (IOException) { }
     }
 

@@ -36,6 +36,12 @@ public static class Commands
     {
         try
         {
+            if (args.FirstOrDefault() is not (null or "discover" or "login"))
+            {
+                ConfigFile.Load();
+                if (ConfigFile.LoadError is { } error)
+                    throw new HueException($"The settings file {ConfigFile.Path} has an error, so Hue Tray won't use or change it until it's fixed: {error}");
+            }
             switch (args.FirstOrDefault())
             {
                 case "pair": return await Pair(args.ElementAtOrDefault(1));

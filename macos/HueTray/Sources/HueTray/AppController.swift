@@ -13,6 +13,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
     private var cfg = Config.load()
+    private var configError: String?   // why the settings file can't be read, if it can't
     private var configDate = Config.modified()
     private var poll: Timer?
 
@@ -67,8 +68,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 _ = await Helper.run(["token"])
                 reloadConfig()
             }
+            reloadConfig()
             startServices()
-            if !cfg.isPaired { await pairClicked() }
+            if configError != nil { reportConfigError() }
+            else if !cfg.isPaired { await pairClicked() }
         }
     }
 
@@ -175,12 +178,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func reloadConfig() {
         cfg = Config.load()
+        configError = Config.loadError()
         configDate = Config.modified()
+    }
+
+    /// Says so if the settings file can't be read. Until it's fixed, Hue Tray isn't paired and won't save over it.
+    private func reportConfigError() {
+        if let configError { notify("The settings file has an error", "Hue Tray won't change it until it's fixed. \(configError)") }
     }
 
     private func pollConfig() async {
         guard Config.modified() != configDate, !pairing else { return }
         reloadConfig()
+        reportConfigError()
         await stopServices()
         startServices()
     }
@@ -199,6 +209,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func statusText() -> String {
         if pairing { return "Pairing…" }
+        if configError != nil { return "The settings file has an error" }
         if let helperError, helper == nil { return "Not running: \(helperError)" }
         switch status {
         case "unpaired": return "Not paired with a bridge"
