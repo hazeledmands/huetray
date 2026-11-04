@@ -18,7 +18,7 @@ You'll need the .NET 10 SDK (`winget install Microsoft.DotNet.SDK.10`). From the
 powershell -ExecutionPolicy Bypass -File windows\install.ps1
 ```
 
-This builds Hue Tray (into `build\windows`), copies it to `%LOCALAPPDATA%\Programs\HueTray`, sets it to start at login and launches it. To build without installing, run `windows\build.ps1`. Windows won't run these scripts from a WSL folder (`\\wsl.localhost\...`), so copy or clone the repo onto a Windows drive first.
+This builds Hue Tray (into `build\windows`), copies it to `%LOCALAPPDATA%\Programs\HueTray`, adds it to the Start menu, sets it to start at login and launches it. To build without installing, run `windows\build.ps1`. Windows won't run these scripts from a WSL folder (`\\wsl.localhost\...`), so copy or clone the repo onto a Windows drive first.
 
 The bulb icon is filled while any light is on, and faded while the bridge can't be reached. Left or right click opens the menu. You may need to drag the icon out of the hidden-icons area (^) so it stays visible.
 
