@@ -63,11 +63,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         Task {
-            // The helper creates config.json, with the API token, the first time it runs.
-            if !FileManager.default.fileExists(atPath: Config.url.path) {
-                _ = await Helper.run(["token"])
-                reloadConfig()
-            }
+            // The helper creates config.json, with the API token, the first time it runs (if its folder is empty).
+            if !FileManager.default.fileExists(atPath: Config.url.path) { _ = await Helper.run(["token"]) }
             reloadConfig()
             startServices()
             if configError != nil { reportConfigError() }
@@ -188,7 +185,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func pollConfig() async {
-        guard Config.modified() != configDate, !pairing else { return }
+        // A file that's gone is usually being synced: keep going with what we have until it's back.
+        guard let date = Config.modified(), date != configDate, !pairing else { return }
         reloadConfig()
         reportConfigError()
         await stopServices()

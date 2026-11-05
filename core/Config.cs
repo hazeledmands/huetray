@@ -56,12 +56,24 @@ public static class ConfigFile
     /// Loads the settings, creating the API token (and saving it) the first time. If there's a settings file
     /// that can't be read, it returns the defaults with no token (so the API turns every request away), sets
     /// LoadError, and doesn't save: Save won't write over it either.
+    ///
+    /// The first time means the folder is empty. If config.json is missing from a folder with other files in
+    /// it, it's most likely in the middle of being synced (Syncthing keeps .stfolder there, and swaps the file
+    /// out while it handles a conflict). A new file then would replace the settings on every computer, so
+    /// that's treated like a file that can't be read until it comes back.
     public static Config Load() => Load(Path);
 
     internal static Config Load(string path)
     {
         LoadError = null;
         string? error = null;
+        if (!File.Exists(path) && Directory.Exists(System.IO.Path.GetDirectoryName(path))
+            && Directory.EnumerateFileSystemEntries(System.IO.Path.GetDirectoryName(path)!).Any())
+        {
+            LoadError = $"It's missing, and Hue Tray is waiting for it to come back. To start afresh, empty {System.IO.Path.GetDirectoryName(path)}, including hidden files.";
+            Log.Write($"{path} is missing from a folder with other files in it, so not creating it");
+            return new Config();
+        }
         var cfg = File.Exists(path) ? Read(path, out error) : new Config();
         if (cfg == null)
         {

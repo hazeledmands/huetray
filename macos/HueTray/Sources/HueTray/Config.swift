@@ -36,9 +36,16 @@ struct Config: Decodable {
         return (try? JSONDecoder().decode(Config.self, from: data)) ?? Config()
     }
 
-    /// Why the settings file can't be read, or nil if it can (or there isn't one). The helper won't use or
-    /// change a file it can't read, so Hue Tray stays unpaired until it's fixed.
+    /// Why the settings file can't be read, or nil if it can (or there isn't one yet). The helper won't use or
+    /// change a file it can't read, so Hue Tray stays unpaired until it's fixed. Nor will it create one in a
+    /// folder with other files in it, which is usually a file being synced (see ConfigFile.Load).
     static func loadError() -> String? {
+        let dir = url.deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: url.path) {
+            let others = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+            return others.isEmpty ? nil
+                : "It's missing, and Hue Tray is waiting for it to come back. To start afresh, empty \(dir.path), including hidden files."
+        }
         guard let data = try? Data(contentsOf: url) else { return nil }
         do {
             _ = try JSONDecoder().decode(Config.self, from: data)

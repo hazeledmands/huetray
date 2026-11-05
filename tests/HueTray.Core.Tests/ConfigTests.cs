@@ -42,6 +42,22 @@ public class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void WaitsForAMissingFileInAFolderWithOtherFilesInIt()
+    {
+        Directory.CreateDirectory(System.IO.Path.Combine(dir, ".stfolder"));   // a synced folder, mid-sync
+
+        var cfg = ConfigFile.Load(Path);
+        Assert.NotNull(ConfigFile.LoadError);
+        Assert.Equal("", cfg.ApiToken);
+        Assert.False(File.Exists(Path));
+
+        File.WriteAllText(Path, """{ "bridgeIp": "192.168.1.72", "appKey": "secret", "apiToken": "abc" }""");
+        cfg = ConfigFile.Load(Path);
+        Assert.Null(ConfigFile.LoadError);
+        Assert.Equal("abc", cfg.ApiToken);
+    }
+
+    [Fact]
     public async Task TheApiTurnsEveryoneAwayWithoutAToken()
     {
         await using var hue = new HueService(new Config(), new FakeBridge().Client());

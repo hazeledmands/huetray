@@ -90,7 +90,8 @@ sealed class TrayApp : ApplicationContext
     async Task PollConfig()
     {
         var date = ConfigFile.Modified();
-        if (date != configDate && !pairing)
+        // A file that's gone is usually being synced: keep going with what we have until it's back.
+        if (date != null && date != configDate && !pairing)
         {
             configDate = date;
             cfg = ConfigFile.Load();
