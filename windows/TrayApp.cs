@@ -171,9 +171,10 @@ sealed class TrayApp : ApplicationContext
         if (hue.State.IsLoaded)
         {
             var state = hue.State;
-            menu.Items.Add(ScenesMenu(state));
-            if (ScopeMenu() is { } scopes) menu.Items.Add(scopes);
             var lights = state.Lights().ToDictionary(l => l.Id);
+            menu.Items.Add(ScenesMenu(state));
+            menu.Items.Add(RoomsMenu(state, lights));
+            if (ScopeMenu() is { } scopes) menu.Items.Add(scopes);
             foreach (var group in Shown(state.Rooms().Concat(state.Zones()), cfg.Menu.Rooms, g => g.Id, g => g.Name, showAllIfEmpty: true))
                 menu.Items.Add(GroupMenu(group, lights));
             foreach (var light in Shown(lights.Values, cfg.Menu.Lights, l => l.Id, l => l.Name, showAllIfEmpty: false))
@@ -223,6 +224,28 @@ sealed class TrayApp : ApplicationContext
         return parent;
     }
 
+    /// Every room, whatever menu.rooms says. Each has the room's own controls, then its lights and its scenes.
+    ToolStripMenuItem RoomsMenu(HueState state, Dictionary<string, Light> lights)
+    {
+        var parent = new ToolStripMenuItem("Rooms");
+        var scenes = state.Scenes();
+        foreach (var room in state.Rooms().OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var item = GroupMenu(room, lights, lightsInSubmenu: true);
+            var roomScenes = scenes.Where(s => s.GroupId == room.Id).OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            if (roomScenes.Count > 0)
+            {
+                var sceneMenu = new ToolStripMenuItem("Scenes");
+                foreach (var scene in roomScenes)
+                    sceneMenu.DropDownItems.Add(Item(scene.Name, scene.Active, () => Do(() => hue.ActivateScene(scene.Id))));
+                item.DropDownItems.Add(sceneMenu);
+            }
+            parent.DropDownItems.Add(item);
+        }
+        if (parent.DropDownItems.Count == 0) parent.DropDownItems.Add(new ToolStripMenuItem("No rooms") { Enabled = false });
+        return parent;
+    }
+
     /// The scopes from the settings, with the chosen one checked. None if there aren't any.
     ToolStripMenuItem? ScopeMenu()
     {
@@ -238,15 +261,23 @@ sealed class TrayApp : ApplicationContext
         return parent;
     }
 
-    ToolStripMenuItem GroupMenu(Group group, Dictionary<string, Light> lights)
+    /// A room or zone's controls, then its lights: listed inline, or in a "Lights" submenu if `lightsInSubmenu`.
+    ToolStripMenuItem GroupMenu(Group group, Dictionary<string, Light> lights, bool lightsInSubmenu = false)
     {
         var members = group.LightIds.Select(id => lights.GetValueOrDefault(id)).OfType<Light>().ToList();
         var parent = new ToolStripMenuItem(Title(group.Name, group.On, group.Brightness));
         AddControls(parent, group.On, group.Brightness, members.Any(l => l.SupportsColorTemp),
                     change => hue.SetGroup(group.Kind, group.Id, change));
-        if (members.Count > 0)
+        if (lightsInSubmenu || members.Count > 0) parent.DropDownItems.Add(new ToolStripSeparator());
+        if (lightsInSubmenu)
         {
-            parent.DropDownItems.Add(new ToolStripSeparator());
+            var lightMenu = new ToolStripMenuItem("Lights");
+            foreach (var light in members) lightMenu.DropDownItems.Add(LightMenu(light));
+            if (members.Count == 0) lightMenu.DropDownItems.Add(new ToolStripMenuItem("No lights") { Enabled = false });
+            parent.DropDownItems.Add(lightMenu);
+        }
+        else
+        {
             foreach (var light in members) parent.DropDownItems.Add(LightMenu(light));
         }
         return parent;

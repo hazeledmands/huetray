@@ -5,6 +5,7 @@ Hue Tray is a small app that controls Philips Hue lights from the Windows notifi
 How it behaves:
 - On first run it finds your Hue Bridge and asks you to press the bridge's round link button. That pairs it, and it remembers the bridge from then on.
 - The menu lists **Scenes** grouped by room. Below that is a submenu for each room and zone, with On, brightness presets, warm/neutral/cool white, and a submenu for each light in it.
+- On Windows, **Rooms** lists every room, even ones left out of `menu.rooms`. Each room has the same controls, then a **Lights** submenu with each of its lights and a **Scenes** submenu with its scenes.
 - **Scopes** are named sets of lights, rooms and zones, such as "Desk lamp", "Desk" and "Office". One of them is chosen at a time, and other programs can change whatever's chosen. A DJ controller's knob can choose the scope while its faders dim or tint it. The **Scope** submenu shows them, with the chosen one checked.
 - It follows changes made anywhere else (the Hue app, switches, other programs) as they happen.
 - Changes go to the bridge no faster than it accepts them: about 10 a second for single lights and 1 a second for rooms and zones. A burst of changes to the same thing, such as a fast jog spin, is merged into the latest value. Brightness steps (`+5`) count from the newest requested level, so a burst adds up correctly even though the bridge sees only a few commands.
