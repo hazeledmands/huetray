@@ -187,24 +187,8 @@ public sealed class HueService : IAsyncDisposable
         }
     }
 
-    /// Turns off what the menu shows: the configured rooms and lights, or every light if none are configured.
-    public void AllOff()
-    {
-        var off = new LightChange { On = false };
-        if (cfg.Menu.Rooms.Count == 0 && cfg.Menu.Lights.Count == 0)
-        {
-            SetGroup("home", "", off);
-            return;
-        }
-        foreach (var room in cfg.Menu.Rooms) Try(() => SetGroup("room", room, off));
-        foreach (var light in cfg.Menu.Lights) Try(() => SetLight(light, off));
-    }
-
-    static void Try(Action action)
-    {
-        try { action(); }
-        catch (HueException e) { Log.Write(e.Message); }
-    }
+    /// Turns off every light, whatever the menu shows.
+    public void AllOff() => SetGroup("home", "", new LightChange { On = false });
 
     void Send(string type, string id, JsonObject body)
     {

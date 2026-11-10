@@ -56,7 +56,7 @@ If the file can't be read, for example after a hand edit with a typo, Hue Tray s
 | `lightCommandsPerSecond` | 10 | how fast to send changes to single lights |
 | `groupCommandsPerSecond` | 1 | how fast to send changes to rooms, zones and scene recalls. Philips asks for at most 1 |
 
-**All Off** turns off `menu.rooms` and `menu.lights`, or every light if both are empty.
+**All Off** turns off every light, including ones the menu doesn't show.
 
 Each scope has a `name` and its `targets`, written like the API's paths: `lights/NAME`, `rooms/NAME`, `zones/NAME` or `home`. List them from smallest to largest, so that turning a knob up widens the scope:
 

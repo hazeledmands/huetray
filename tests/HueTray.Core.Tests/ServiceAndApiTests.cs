@@ -12,14 +12,14 @@ public class ServiceAndApiTests : IAsyncLifetime
 {
     const string Token = "test-token";
     readonly FakeBridge bridge = new();
+    readonly Config cfg = new() { LightCommandsPerSecond = 1000, GroupCommandsPerSecond = 1000 };
     HueService hue = null!;
     ApiServer api = null!;
     HttpClient http = null!;
 
     public async Task InitializeAsync()
     {
-        var cfg = new Config { LightCommandsPerSecond = 1000, GroupCommandsPerSecond = 1000 };
-        hue = new HueService(cfg, bridge.Client());
+        hue =new HueService(cfg, bridge.Client());
         await hue.LoadAsync();
         api = new ApiServer(hue, Token);
         await api.StartAsync(0);
@@ -90,11 +90,14 @@ public class ServiceAndApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AllOffUsesTheHomeGroupByDefault()
+    public async Task AllOffTurnsOffEveryLightEvenWhenTheMenuIsFiltered()
     {
+        cfg.Menu.Rooms.Add("Bedroom");
+        cfg.Menu.Lights.Add("Sofa lamp");
         Assert.Equal(HttpStatusCode.NoContent, (await http.PostAsync("off", null)).StatusCode);
         await hue.WhenIdle();
         Assert.Equal("""{"on":{"on":false}}""", bridge.PutsTo("clip/v2/resource/grouped_light/gl-home").Single().ToJsonString());
+        Assert.Single(bridge.Puts);
     }
 
     [Fact]
